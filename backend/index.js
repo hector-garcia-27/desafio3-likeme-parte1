@@ -1,19 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const { getData, postear, sumarLike, borrarPost } = require('./funciones.js')
 const app = express()
+
 
 // Levantamiento del servidor
 app.listen(3000, () => console.log("servidor escuchando el puerto 3000"))
-
-// configuracion de credenciales de la base de datos
-const pool = new Pool({
-    host: 'localhost',
-    user: 'postgres',
-    password: 'admin123',
-    database: 'likeme',
-    allowExitOnIdle: true
-})
 
 //middleware
 app.use(express.json())
@@ -25,25 +17,51 @@ app.use(cors())
 
 app.get("/posts", async (req, res) => {
     try {
-        const query = "SELECT * FROM posts;"
-        const { rows } = await pool.query(query)
-        console.log(rows)
-        res.json(rows)
+        const data = await getData()
+        res.json(data)
     } catch (error) {
-        console.log(error.message)
+        res.status(error.code).json(error.message)
     }
 })
 
 app.post("/posts", async (req, res) => {
     try {
         const { titulo, url, descripcion } = req.body
-        const id = Math.floor(Math.random() * 9999)
-        const query = "INSERT INTO posts (id, titulo, img, descripcion, likes) VALUES ($1, $2, $3, $4, $5)"
-        const values = [id, titulo, url, descripcion, 0]
-        const { rows } = await pool.query(query, values)
-        console.log(rows)
+        const post = await postear(titulo, url, descripcion)
         res.json("Post agregado con exito")
     } catch (error) {
-        console.log("Hay un error ", error.message)
+        res.status(error.code).json(error.message)
+    }
+})
+
+app.put("/posts/like/:id", async (req, res) => {
+    try {
+        const { id } = req.params
+        const addLike = await sumarLike(id)
+        if (addLike.rowCount === 0) {
+            throw {
+                code: 404,
+                message: `id ${id} no encontrado`
+            }
+        }
+        res.send("like agregado")
+    } catch (error) {
+        res.status(error.code).json(error.message)
+    }
+})
+
+app.delete("/posts/:id", async (req, res) => {
+    try {
+        const { id } = req.params
+        const borrar = await borrarPost(id)
+        if (borrar.rowCount === 0) {
+            throw {
+                code: 404,
+                message: `id ${id} no encontrado`
+            }
+        }
+        res.json(`el post con id ${id}, fue borrado con exito`)
+    } catch (error) {
+        res.status(error.code).json(error.message)
     }
 })
